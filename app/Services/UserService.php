@@ -3,10 +3,31 @@
 namespace App\Services;
 
 use App\Models\User;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
 
 class UserService
 {
+    public function register(array $data)
+    {
+        $user = User::create([
+            'user_id' => (string) Str::uuid(), // Generate a UUID
+            'user_type_id' => 1, // Assuming a default user type ID
+            'name' => $data['name'],
+            'phone' => $data['phone'],
+            'email' => $data['email'],
+            'password' => Hash::make($data['password']),
+        ]);
+
+        event(new Registered($user));
+
+        return [
+            'message' => 'Account created successfully.',
+            'user' => $user
+        ];
+    }
+
     public function login(array $credentials)
     {
         $user = User::where('email', $credentials['email'])->first();
@@ -18,8 +39,8 @@ class UserService
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return [
-            'user' => $user,
-            'token' => $token
+            'token' => $token,
+            'user' => $user
         ];
     }
 }
