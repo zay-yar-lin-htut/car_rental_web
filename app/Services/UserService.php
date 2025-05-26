@@ -37,9 +37,10 @@ class UserService
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
+        $tokenValue = strpos($token, '|') !== false ? explode('|', $token, 2)[1] : $token;
 
         return [
-            'token' => $token,
+            'token' => $tokenValue,
             'user' => $user
         ];
     }
