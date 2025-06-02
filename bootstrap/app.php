@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use App\Http\Middleware\CheckUserType;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,7 +13,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        // $middleware->append(CheckUserType::class)
+        //     ->alias('user_type')
+        //     ->for('api');
+        $middleware->alias([
+            'user_type' => CheckUserType::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

@@ -56,12 +56,59 @@ class UserController extends Controller
 
     public function currentUser()
     {
-        return response()->json(Auth::user(), 200);
+        $user_id=Auth::user()->user_id;
+        return response()->json([$this->userService->currentUser($user_id)], 200);
     }
 
     public function logout()
     {
         Auth::user()->currentAccessToken()->delete();
         return response()->json(['message' => 'Logged out successfully'], 200);
+    }
+
+    // public function uploadFile($photo)
+    // {
+    //     $file = $photo->file('image');
+    //     $path = 'ProfileImages/';
+    //     if (!$file->isValid()) {
+    //         return response()->json(['message' => 'Invalid file upload'], 400);
+    //     }
+
+    //     $result = $this->fileService->uploadImage($file, $path);    
+
+    //     return response()->json(['url' => $result], 200);
+    // }
+
+    public function updateUser(Request $request)
+    {
+        $data = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'phone' => 'sometimes|string|regex:/^\+?[1-9]\d{9,14}$/',
+            'email' => 'sometimes|string|email|max:255|unique:users,email,' . Auth::user()->user_id . ',user_id',
+            'address' => 'sometimes|string|max:255',
+            'image' => 'sometimes|file|max:10240',
+        ]);
+
+        try {
+            if ($request->hasFile('image')) {
+                $file = $request->file('image');
+                $photoPath = $this->userService->profileImageUpload($file); // ✅ directly call service
+                $data['photo_path'] = $photoPath;
+            }
+
+            // Update the user
+            $this->userService->updateUser($data);
+
+            // Just return updated user info using currentUser()
+            return $this->currentUser();
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 400);
+        }
+    }
+
+    public function profileImageUpload(Request $request)
+    {
+        $file_path = $this->userService->profileImageUpload($request->file('image'));
+        return $file_path;
     }
 }
