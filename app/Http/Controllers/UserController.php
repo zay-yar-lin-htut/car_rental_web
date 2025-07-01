@@ -25,7 +25,7 @@ class UserController extends Controller
     {
         $rules = [
             'name' => 'required|string|max:255',
-            'phone' => 'required|string|regex:/^\+?[1-9]\d{9,14}$/',
+            'phone' => 'required|string|regex:/^\d{9,14}$/',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
         ];
@@ -91,27 +91,13 @@ class UserController extends Controller
         return $this->helper->PostMan(null, 200, "Logged out successfully");
     }
 
-    // public function uploadFile($photo)
-    // {
-    //     $file = $photo->file('image');
-    //     $path = 'ProfileImages/';
-    //     if (!$file->isValid()) { 
-    //         return response()->json(['message' => 'Invalid file upload'], 400);
-    //     }
-
-    //     $result = $this->fileService->uploadImage($file, $path);    
-
-    //     return response()->json(['url' => $result], 200);
-    // }
-
     public function updateUser(Request $request)
     {
         $rules = [
             'name' => 'sometimes|string|max:255',
-            'phone' => 'sometimes|string|regex:/^\+?[1-9]\d{9,14}$/',
+            'phone' => 'sometimes|string|regex:/^\d{9,14}$/',
             'email' => 'sometimes|string|email|max:255|unique:users,email,' . Auth::user()->user_id . ',user_id',
             'address' => 'sometimes|string|max:255',
-            'image' => 'sometimes|file|max:10240',
         ];
 
         $validate = $this->helper->Validate($request, $rules);
@@ -119,12 +105,6 @@ class UserController extends Controller
         {
             try {
                 $data = $request->all();
-                if ($request->hasFile('image')) {
-                    $file = $request->file('image');
-                    $photoPath = $this->userService->profileImageUpload($file); // ✅ directly call service
-                    $data['photo_path'] = $photoPath;
-                }
-
                 $this->userService->updateUser($data);
 
                 return $this->helper->PostMan($this->currentUser(), 200, "Successfully Updated User");
@@ -138,9 +118,22 @@ class UserController extends Controller
         }
     }
 
-    public function profileImageUpload(Request $request)
+    public function profileImageRequest(Request $request)
     {
-        $file_path = $this->userService->profileImageUpload($request->file('image'));
-        return $file_path;
+        $rules = [
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ];
+
+        $validate = $this->helper->Validate($request, $rules);
+        if (is_null($validate)) {
+            $file_path = $this->userService->profileImageUpload($request->file('image'));
+            if ($file_path['success']) {
+                return $this->helper->PostMan(env('R2_URL')."/".$file_path['message'], 200, "Profile image uploaded successfully");
+            } else {
+                return $this->helper->PostMan(null, 500, $file_path['message']);
+            }
+        } else {
+            return $this->helper->PostMan(null, 422, $validate);
+        }
     }
 }

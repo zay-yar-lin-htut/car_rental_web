@@ -103,22 +103,37 @@ class UserService
         if ($exists) {
             $delete = $this->fileService->deleteFile($exists);
             if (!$delete) {
-                return response()->json(['message' => 'Failed to delete existing photo'], 500);
+                return [
+                    'success' => false,
+                    'message' => 'Failed to delete existing photo'
+                ];
             }
             $upload = $this->fileService->uploadFile($file, 'ProfileImages/');
             if (!$upload) {
-                return response()->json(['message' => 'Failed to upload photo'], 500);
+                return [
+                    'success' => false,
+                    'message' => 'Failed to upload photo'
+                ];
             }
             $this->profileImageDBupdate($upload);
-            return response()->json(['message' => $upload], 200);
+            return [
+                    'success' => true,
+                    'message' => $upload
+                ];
         }
         else{
             $upload = $this->fileService->uploadFile($file, 'ProfileImages/');
             if (!$upload) {
-                return response()->json(['message' => 'Failed to upload photo'], 500);
+                return [
+                    'success' => false,
+                    'message' => 'Failed to upload photo'
+                ];
             }
             $this->profileImageDBupdate($upload);
-            return response()->json(['message' => $upload], 200);
+            return [
+                    'success' => true,
+                    'message' => $upload
+                ];
         }
     }
 

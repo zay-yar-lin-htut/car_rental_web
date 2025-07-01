@@ -31,8 +31,8 @@ Route::middleware('auth:sanctum')->group(function ()
 
     Route::get('/profile', [UserController::class, 'profile']);
     Route::get('/logout', [UserController::class, 'logout']);
-    Route::post('/upload&update-pf-img', [UserController::class, 'profileImageUpload']);
-    Route::post('/update-profile', [UserController::class, 'updateUser']);
+    Route::post('/upload&update-profile-image', [UserController::class, 'profileImageRequest']);
+    Route::put('/update-profile', [UserController::class, 'updateUser']);
 
     Route::post('/email/verification-notification', [UserController::class, 'sendVerificationEmail']);
     Route::get('/verify-email/{id}/{hash}', [UserController::class, 'verify'])->name('verification.verify');

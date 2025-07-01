@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Helpers;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Support\Facades\Validator;
 
 class Helper
@@ -39,6 +40,15 @@ class Helper
             return $validator->errors()->first();
         }
 
-        return null; // No validation errors
+        return null;
+    }
+
+    protected function unauthenticated($request, AuthenticationException $exception)
+    {
+        if ($request->expectsJson()) {
+            $this->PostMan(null, 401, 'Invalid or missing token');
+        }
+
+        return redirect()->guest(route('login'));
     }
 }
