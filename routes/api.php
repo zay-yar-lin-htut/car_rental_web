@@ -6,10 +6,6 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\CarController;
 use App\Helpers\Helper;
 
-// Route::get('/user', function (Request $request) {
-//     return $request->user();
-// })->middleware('auth:sanctum');
-
 Route::post('/register', [UserController::class, 'register']);
 Route::post('/login', [UserController::class, 'login']);
 
@@ -59,7 +55,7 @@ Route::middleware('auth:sanctum')->group(function ()
     // Route::get('/verify-email/{id}/{hash}', [UserController::class, 'verify'])->name('verification.verify');
 });
 
-Route::get('/testing', [Helper::class, 'test']);
+Route::get('/testing', [CarController::class, 'deleteCarType']);
 Route::get('/list-file', [UserController::class, 'listFiles']);
 
 //// testing route

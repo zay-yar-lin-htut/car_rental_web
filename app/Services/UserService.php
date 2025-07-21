@@ -109,7 +109,7 @@ class UserService
         return $user;
     }
     
-    public function alreadyExistsPhoto(string $id)
+    public function alreadyExistsProfilePhoto(string $id)
     {
         $photoPath = DB::table('users as u')
             ->leftJoin('photo_paths as pp', 'u.photo_path_id', '=', 'pp.photo_path_id')
@@ -124,7 +124,7 @@ class UserService
     {
         $id = Auth::user()->user_id;
 
-        $exists = $this->alreadyExistsPhoto($id);
+        $exists = $this->alreadyExistsProfilePhoto($id);
         if ($exists) {
             $delete = $this->fileService->deleteFile($exists);
             if (!$delete) {
@@ -165,7 +165,7 @@ class UserService
     public function deleteProfileImage()
     {
         $id = Auth::user()->user_id;
-        $exists = $this->alreadyExistsPhoto($id);
+        $exists = $this->alreadyExistsProfilePhoto($id);
         if ($exists) {
             $delete = $this->fileService->deleteFile($exists);
             if ($delete) {

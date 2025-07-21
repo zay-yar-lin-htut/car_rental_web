@@ -58,8 +58,7 @@ class CarService
             return "Failed to upload car type image.";
         }
 
-        $carTypeId = DB::table('car_type')
-        ->insertGetId([
+        $carTypeId = DB::table('car_type')->insertGetId([
             'type_name' => $data['type_name'],
             'description' => $data['description'],
             'photo_path_id' => DB::table('photo_paths')->insertGetId(['photo_path' => $photoPath]),
@@ -84,6 +83,14 @@ class CarService
         return $carType;
     }
 
+    public function alreadyExistsCarTypeImage($id)
+    {
+        $photoPath = DB::table('photo_paths')
+        ->where('photo_path_id', $id)
+        ->value('photo_path');
+        return $photoPath;
+    }
+
     public function updateCarType($data)
     {
         $carType = DB::table('car_type')
@@ -93,11 +100,46 @@ class CarService
             return "Car type not found.";
         }
 
+        if (isset($data['car_type_image'])) {
+            $existsPhotoPath=$this->alreadyExistsCarTypeImage($carType->photo_path_id);
+            $photoDelete = $this->fileService->deleteFile($existsPhotoPath);
+            if (!$photoDelete) {
+                return "Failed to delete old car type image.";
+            }
+            $photoPath = $this->fileService->uploadFile($data['car_type_image'], 'Car_Types/');
+            if (!$photoPath) {
+                return "Failed to upload car type image.";
+            }
+            DB::table('photo_paths')
+            ->where('photo_path_id', $carType->photo_path_id)
+            ->update(['photo_path' => $photoPath]);
+        }
+
         DB::table('car_type')->where('car_type_id', $data['id'])->update([
             'type_name' => $data['type_name'] ?? $carType->type_name,
             'description' => $data['description'] ?? $carType->description,
-            'photo_path_id' => isset($data['car_type_image']) ? DB::table('photo_paths')->insertGetId(['photo_path' => $this->fileService->uploadFile($data['car_type_image'], 'Car_Types/')]) : $carType->photo_path_id,
         ]);
+
+        return null; 
+    }
+
+    public function deleteCarType($id)
+    {
+        $carType = DB::table('car_type')->where('car_type_id', $id)->first();
+        if (!$carType) {
+            return "Car type not found.";
+        }
+
+        $existsPhotoPath = $this->alreadyExistsCarTypeImage($carType->photo_path_id);
+        if ($existsPhotoPath) {
+            $deletePhoto = $this->fileService->deleteFile($existsPhotoPath);
+            if (!$deletePhoto) {
+                return "Failed to delete car type image.";
+            }
+        }
+        // Delete the photo path record
+        DB::table('photo_paths')->where('photo_path_id', $carType->photo_path_id)->delete();
+        DB::table('car_type')->where('car_type_id', $id)->delete();
 
         return null; 
     }

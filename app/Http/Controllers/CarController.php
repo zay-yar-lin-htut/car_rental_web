@@ -35,7 +35,7 @@ class CarController extends Controller
         $rules = [
             'type_name' => 'required|string|max:255|unique:car_type,type_name',
             'description' => 'required|string|max:500',
-            'car_type_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'car_type_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:10240',
         ];
         $validate = $this->helper->validate($request, $rules);
         if (is_null($validate)) 
@@ -69,13 +69,13 @@ class CarController extends Controller
         $rules = [
             'type_name' => 'nullable|string|max:255|unique:car_type,type_name,' . $id . ',car_type_id',
             'description' => 'nullable|string|max:500',
-            'car_type_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'car_type_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:10240',
         ];
         $validate = $this->helper->validate($request, $rules);
         if (is_null($validate))
         {            
             $data = $request->all();
-            $data['id'] = $id; // Include the ID in the data for the update
+            $data['id'] = $id; 
             $response = $this->carService->updateCarType($data);
             if (is_null($response)) {
                 $currentCarType = $this->carService->getCarTypeById($id);
@@ -92,9 +92,12 @@ class CarController extends Controller
         }
     }
 
-    public function deleteCarType($id)
+    public function deleteCarType($id = 11)
     {
-        // Logic to delete a car type
-        return response()->json(['message' => 'Car type deleted successfully'], 200);
+        $carType = $this->carService->deleteCarType($id);
+        if (is_null($carType)) {
+            return $this->helper->PostMan(null, 200, "Car type deleted successfully");
+        }
+        return $this->helper->PostMan(null, 404, $carType);
     }
 }
