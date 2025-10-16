@@ -6,12 +6,25 @@ use Illuminate\Support\Facades\DB;
 
 class OfficeLocationService{
 
-    public function getAllOfficeLocations(){
+    public function getAllOfficeLocations()
+    {
         $officeLocations = DB::table('office_locations')->get();
-        if (!$officeLocations) {
-            return "No office locations found.";
+
+        if ($officeLocations->isEmpty()) {
+            return null;
         }
-        return $officeLocations;
+
+        $transformed = $officeLocations->map(function ($item) {
+            return [
+                'office_location_id' => $item->office_location_id,
+                'location_name' => $item->location_name,
+                'location' => [ $item->latitude, $item->longitude ],
+                'created_at' => $item->created_at,
+                'updated_at' => $item->updated_at
+            ];
+        });
+
+        return $transformed;
     }
 
     public function createOfficeLocation(array $data){

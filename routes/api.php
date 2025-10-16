@@ -13,15 +13,9 @@ use App\Http\Controllers\TestingController;
 Route::get('/proxy-image', [ImageController::class, 'proxyImage']);
 Route::post('/register', [UserController::class, 'register']);
 Route::post('/login', [UserController::class, 'login']);
-Route::post('/contact-us-create', [ContactUsController::class, 'createContactUs']);
 
 // Contact Us routes
-
-// Office Location routes
-Route::get('/office-locations', [OfficeLocationController::class, 'getOfficeLocations']);
-
-// Car routes 
-Route::get('/cars', [CarController::class, 'getCars']);
+Route::post('/contact-us-create', [ContactUsController::class, 'createContactUs']);
 
 Route::middleware('auth:sanctum')->group(function ()
 {
@@ -77,12 +71,18 @@ Route::middleware('auth:sanctum')->group(function ()
     Route::delete('/delete-profile-image', [UserController::class, 'deleteProfileImage']);
     Route::put('/update-profile', [UserController::class, 'updateUser']);
 
+    // Car routes 
+    Route::get('/cars', [CarController::class, 'getCars']);
+
     // Car type routes
     Route::get('/car-types', [CarController::class, 'carTypes']);
 
     // Booking routes
     Route::get('/bookings/user', [BookingController::class, 'getBookingByUser']);
     Route::post('/booking-create', [BookingController::class, 'createBooking']);
+        
+    // Office Location routes
+    Route::get('/office-locations', [OfficeLocationController::class, 'getOfficeLocations']);
 });
 
 Route::get('/mail', [TestingController::class, 'mail']);
