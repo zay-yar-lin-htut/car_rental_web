@@ -78,17 +78,13 @@
 
               <table role="presentation" style="margin-top:18px; margin-bottom:18px;">
                 <tr>
-                  <td style="padding:6px 12px; font-weight:bold; vertical-align:top;">Username:</td>
-                  <td style="padding:6px 12px;"><span class="info-box">{{ $user_name }}</span></td>
-                </tr>
-                <tr>
-                  <td style="padding:6px 12px; font-weight:bold; vertical-align:top;">Current Password:</td>
+                  <td style="padding:6px 12px; font-weight:bold; vertical-align:top;">Reseted Password:</td>
                   <td style="padding:6px 12px;"><span class="info-box">{{ $password }}</span></td>
                 </tr>
               </table>
 
               <p style="font-size:16px; line-height:1.6;">
-                Click the button below to go to the Change Password page and update your password now:
+                Click the button below and go to your profile page, and update your password:
               </p>
             </td>
           </tr>
@@ -96,7 +92,7 @@
           <!-- CTA -->
           <tr>
             <td align="center" style="padding:18px 0 28px 0;">
-              <a class="cta" href="{{ $change_password_link }}">Change Password Now</a>
+              <a class="cta" href="https://car-rental-frontend-weu1.vercel.app/">Change Password Now</a>
             </td>
           </tr>
 
@@ -106,10 +102,7 @@
               <p style="margin:0 0 8px 0;">
                 <strong>Security notice:</strong> If you did not request this or you believe your account has been compromised, immediately contact our support team:
                 <br/>
-                <a href="mailto:support@journeywheel.example">support@journeywheel.example</a> or call +1 (555) 123-4567.
-              </p>
-              <p style="margin:8px 0 0 0;">
-                For best practice, consider rotating this password now and enabling two-factor authentication (2FA) if available.
+                <a href="mailto:jourenywheel@gmail.com">jourenywheel@gmail.com</a> or call +959 973944946
               </p>
             </td>
           </tr>

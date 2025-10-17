@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\User;
-use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Services\FileService;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\Welcome;
+use App\Mail\PasswordReset;
 
 class UserService
 {
@@ -244,13 +244,15 @@ class UserService
         return $userInfo;
     }
 
-    public function getAllUsers()
+    public function userList($data)
     {
-        $users = DB::table('users as u')
+        $query = DB::table('users as u')
             ->leftJoin('photo_paths as pp', 'u.photo_path_id', '=', 'pp.photo_path_id')
+            ->leftJoin('user_type as ut', 'u.user_type_id', '=', 'ut.user_type_id')
             ->select(
                 'u.user_id',
                 'u.user_type_id',
+                'ut.type_name',
                 'u.name',
                 'u.phone',
                 'u.email',
@@ -258,10 +260,34 @@ class UserService
                 'u.created_at',
                 'u.updated_at',
                 DB::raw("CONCAT('" . env('R2_URL') . "/', pp.photo_path) as profile_image_url")
-            )
-            ->get();
+            );
 
-        return $users;
+        if (!empty($data['filter_by'])) {
+            if ($data['filter_by'] == 'user') {
+                $query->where('ut.type_name', 'user');
+            } else if ($data['filter_by'] == 'admin') {
+                $query->where('ut.type_name', 'admin');
+            } else if ($data['filter_by'] == 'staff') {
+                $query->where('ut.type_name', 'staff');
+            } else if ($data['filter_by'] == 'banned_user') {
+                $query->where('u.is_banned', true);
+            } else if ($data['filter_by'] == 'active_user') {
+                $query->where('u.is_banned', false);
+            }
+        }
+
+        $totalUsers = DB::table('users')->count();
+
+        $page = max(1, (int)$data['first']);
+        $max = max(1, (int)$data['max']);
+        $offset = ($page - 1) * $max;
+
+        $users = $query->offset($offset)->limit($max)->get();
+
+        return [
+            'users' => $users,
+            'total_users' => $totalUsers
+        ];
     }
 
     public function banAndUnUser($id)
@@ -291,10 +317,45 @@ class UserService
         }
     }
 
-    public function passwordReset($id) {
-        $user = DB::table('users')
-            ->where('user_id', $id)
-            ->update(['password' => Hash::make('password'), 'updated_at' => now()]);
+    public function getUserByID($id) {
+        $user = DB::table('users as u')
+            ->leftJoin('photo_paths as pp', 'u.photo_path_id', '=', 'pp.photo_path_id')
+            ->where('u.user_id', $id)
+            ->select(
+                'u.user_id',
+                'u.user_type_id',
+                'u.name',
+                'u.phone',
+                'u.email',
+                'u.is_banned',
+                'u.created_at',
+                'u.updated_at',
+                DB::raw("CONCAT('" . env('R2_URL') . "/', pp.photo_path) as profile_image_url")
+            )
+            ->first();
+        if(!$user) {
+            return null;
+        }
         return $user;
+    }
+
+    public function passwordReset($id) {
+        $password = $this->commonService->passwordGenerate();
+
+        $user = $this->getUserByID($id);
+
+        if(!$user) {
+            return "User not found";
+        }
+
+        $update = DB::table('users')
+            ->where('user_id', $id)
+            ->update(['password' => Hash::make($password), 'updated_at' => now()]);
+        
+        if(!$update) {
+            return "Failed to update password";
+        }
+        Mail::to($user->email)->send(new PasswordReset($user->name, $password));
+        return null;
     }
 }

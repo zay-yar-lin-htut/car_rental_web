@@ -181,14 +181,22 @@ class UserController extends Controller
         }
     }
 
-    public function userList() 
+    public function userList(Request $request) 
     {
-        $users = $this->userService->getAllUsers();
-        if (is_null($users)) {
-            return $this->helper->PostMan(null, 404, "No users found");
+        $rule = [
+            'first' => 'required|integer|min:1',
+            'max' => 'required|integer|min:1',
+            'filter_by' => 'nullable|string|in:user,banned_user,active_user,admin,staff',
+        ];
+
+        $validate = $this->helper->validate($request, $rule); 
+        if (is_null($validate)) {
+            $data = $request->all();
+            $response = $this->userService->userList($data);
+            return $this->helper->PostMan($response, 200, "Users Retrieved Successfully");
+        } else {
+            return $this->helper->PostMan(null, 422, $validate);
         }
-        
-        return $this->helper->PostMan($users, 200, "Successfully Retrieved User");
     }
 
     public function banAndUnbanUser($id)
@@ -212,16 +220,14 @@ class UserController extends Controller
 
     public function passwordReset($id)
     {
-        // $user = $this->userService->passwordReset($id);
-        // if(is_null($user))
-        // {
-        //     return $this->helper->PostMan(null, 404, "User Not Found");
-        // }
-        // else
-        // {
-        //     return $this->helper->PostMan(null, 200, "Password Reset Successfully");
-        // }
-        $password = $this->commonService->passwordGenerate($id);
-        return $this->helper->PostMan(null, 200, $password); 
+        $user = $this->userService->passwordReset($id);
+        if(is_null($user))
+        {            
+            return $this->helper->PostMan(null, 200, "Password Reset Successfully");
+        }
+        else
+        {
+            return $this->helper->PostMan(null, 500, $user);
+        }
     }
 }

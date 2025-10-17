@@ -18,7 +18,7 @@ class Welcome extends Mailable
             ->view('emails.user_welcome')
             ->with([
                 'user_name' => $this->user_name,
-                'date' => now(),
+                'date' => now('Y'),
             ]);
     }
 }
