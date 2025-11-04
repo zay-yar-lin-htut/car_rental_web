@@ -14,6 +14,12 @@ Route::get('/proxy-image', [ImageController::class, 'proxyImage']);
 Route::post('/register', [UserController::class, 'register']);
 Route::post('/login', [UserController::class, 'login']);
 
+// Car Types routes
+Route::get('/car-types', [CarController::class, 'carTypes']);
+
+// Office Location routes
+Route::get('/office-locations', [OfficeLocationController::class, 'getOfficeLocations']);
+
 // Contact Us routes
 Route::post('/contact-us-create', [ContactUsController::class, 'createContactUs']);
 
@@ -77,7 +83,6 @@ Route::middleware('auth:sanctum')->group(function ()
     Route::get('/cars', [CarController::class, 'getCars']);
 
     // Car type routes
-    Route::get('/car-types', [CarController::class, 'carTypes']);
 
     // Booking routes
     Route::get('/bookings/user', [BookingController::class, 'getBookingByUser']);
@@ -85,7 +90,6 @@ Route::middleware('auth:sanctum')->group(function ()
     Route::get('/booking-cancel/{id}', [BookingController::class, 'cancelBooking']);
         
     // Office Location routes
-    Route::get('/office-locations', [OfficeLocationController::class, 'getOfficeLocations']);
 });
 
 Route::get('/mail', [TestingController::class, 'mail']);

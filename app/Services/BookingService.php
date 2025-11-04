@@ -19,13 +19,105 @@ class BookingService
         $this->officeLocationService = $officeLocationService;
     }
 
-    public function getAllBookings()
+    public function getAllBookings($data, $user)
     {
-        $bookings = DB::table('bookings')->get();
-        if (!$bookings) {
-            return "No bookings found.";
+        $query = DB::table('bookings as b')
+            ->leftJoin('users as u', 'b.user_id', '=', 'u.user_id')
+            ->leftJoin('cars as c', 'b.car_id', '=', 'c.car_id')
+            ->leftJoin('car_type as ct', 'c.car_type_id', '=', 'ct.car_type_id')
+            ->leftJoin('office_locations as ol', 'c.office_location_id', '=', 'ol.office_location_id')
+            ->select(
+                'b.booking_id',
+                'b.ticket_number',
+                'b.user_id',
+                'u.name as customer_name',
+                'u.phone as customer_phone',
+                'b.car_id',
+                'c.model as car_model',
+                'c.license_plate',
+                'ct.type_name as car_type',
+                'ol.location_name as office',
+                'b.pickup_datetime',
+                'b.dropoff_datetime',
+                'b.pickup_latitude',
+                'b.pickup_longitude',
+                'b.dropoff_latitude',
+                'b.dropoff_longitude',
+                'b.total_amount',
+                'b.cancellation_fine',
+                'b.no_show_fine',
+                'b.booking_status',
+                'b.deliver_need',
+                'b.take_back_need',
+                'b.created_at',
+                'b.updated_at'
+            );
+
+        if ($user->user_type_id != 3) {
+            $query->where(function ($q) use ($user) {
+                $q->where('b.deliver_need', 1)
+                ->orWhere('b.take_back_need', 1)
+                ->orWhere('b.complete_by', $user->user_id);
+            });
         }
-        return $bookings;
+
+        $baseQuery = clone $query;
+
+        if (!empty($data['search_by'])) {
+            $searchTerm = '%' . $data['search_by'] . '%';
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('b.ticket_number', 'LIKE', $searchTerm)
+                ->orWhere('u.name', 'LIKE', $searchTerm)
+                ->orWhere('c.model', 'LIKE', $searchTerm);
+            });
+            $baseQuery->where(function ($q) use ($searchTerm) {
+                $q->where('b.ticket_number', 'LIKE', $searchTerm)
+                ->orWhere('u.name', 'LIKE', $searchTerm)
+                ->orWhere('c.model', 'LIKE', $searchTerm);
+            });
+        }
+
+        if (!empty($data['filter_by'])) {
+            if (in_array($data['filter_by'], ['pending', 'confirmed', 'cancelled', 'completed'])) {
+                $query->where('b.booking_status', $data['filter_by']);
+                $baseQuery->where('b.booking_status', $data['filter_by']);
+            } elseif ($data['filter_by'] == 'needs_delivery') {
+                $query->where('b.deliver_need', 1);
+                $baseQuery->where('b.deliver_need', 1);
+            } elseif ($data['filter_by'] == 'needs_takeback') {
+                $query->where('b.take_back_need', 1);
+                $baseQuery->where('b.take_back_need', 1);
+            }
+        }
+
+        $totalBookings = $baseQuery->count();
+        $totalAmount = $baseQuery->sum('b.total_amount');
+
+        $page = max(1, (int)$data['first']);
+        $max = max(1, (int)$data['max']);
+        $offset = ($page - 1) * $max;
+
+        $bookings = $query->offset($offset)->limit($max)->orderByDesc('b.created_at')->get();
+
+        $bookings->transform(function ($booking) {
+            $booking->total_amount = (float)$booking->total_amount;
+            $booking->cancellation_fine = (float)$booking->cancellation_fine;
+            $booking->no_show_fine = (float)$booking->no_show_fine;
+            return $booking;
+        });
+
+        return [
+            'bookings' => $bookings,
+            'total_bookings' => $totalBookings,
+            'total_amount' => (float)$totalAmount,
+            'pagination' => [
+                'current_page' => $page,
+                'per_page' => $max,
+                'from' => $offset + 1,
+                'to' => min($offset + $max, $totalBookings),
+                'last_page' => ceil($totalBookings / $max)
+            ]
+        ];
     }
 
     public function getBookingsByUser()

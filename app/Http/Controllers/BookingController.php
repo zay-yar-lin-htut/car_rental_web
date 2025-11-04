@@ -21,10 +21,27 @@ class BookingController extends Controller
         $this->commonService = $commonService;
     }
 
-    public function getBookings()
+    public function getBookings(Request $request)
     {
-        $bookings = $this->bookingService->getAllBookings();
-        return $this->helper->PostMan($bookings, 200, "Bookings Retrieved Successfully");
+        $rule = [
+            'search_by' => 'nullable|string|max:255',
+            'first' => 'required|integer|min:1',
+            'max' => 'required|integer|min:1',
+            'filter_by' => 'nullable|string|in:pending,confirmed,cancelled,completed,needs_delivery,needs_takeback',
+        ];
+
+        $validate = $this->helper->validate($request, $rule);
+        if (is_null($validate)) {
+            $data = $request->all();
+            $user = $request->user();
+            if (!in_array($user->user_type_id, [2, 3])) {
+                return $this->helper->PostMan(null, 403, "Forbidden");
+            }
+            $response = $this->bookingService->getAllBookings($data, $user);
+            return $this->helper->PostMan($response, 200, "Bookings Retrieved Successfully");
+        } else {
+            return $this->helper->PostMan(null, 422, $validate);
+        }
     }
 
     public function getBookingByUser()
