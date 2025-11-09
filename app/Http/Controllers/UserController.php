@@ -36,8 +36,8 @@ class UserController extends Controller
         $validate = $this->helper->Validate($request, $rules);
         if(is_null($validate))
         {
-            $data['user_type_id'] = 1;
             $data = $request->all();
+            $data['user_type_id'] = 1;
             $response = $this->userService->register($data);
                 
             if(is_null($response))
