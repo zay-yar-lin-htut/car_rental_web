@@ -93,7 +93,6 @@ Route::middleware('auth:sanctum')->group(function ()
     // Car type routes
 
     // Booking routes
-    Route::get('/bookings/user', [BookingController::class, 'getBookingByUser']);
     Route::post('/booking-create', [BookingController::class, 'createBooking']);
     Route::get('/booking-cancel/{id}', [BookingController::class, 'cancelBooking']);
         

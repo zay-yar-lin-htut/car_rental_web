@@ -19,7 +19,7 @@ class ReviewService
             ->first();
 
         if (!$booking) {
-            return "Booking not found or not yours.";
+            return "Booking not found";
         }
 
         if ($booking->booking_status !== 'completed') {

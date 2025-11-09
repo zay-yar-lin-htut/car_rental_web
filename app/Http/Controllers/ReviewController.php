@@ -18,17 +18,17 @@ class ReviewController extends Controller
         $this->helper = $helper;
     }
 
-    public function submitReview(Request $request, $booking_id)
+    public function submitReview(Request $request)
     {
         $rules = [
             'rating'  => 'required|integer|min:1|max:5',
-            'comment' => 'nullable|string|max:1000'
+            'comment' => 'nullable|string|max:1000',
+            'booking_id' => 'required|integer|exists:bookings,booking_id'
         ];
 
         $validate = $this->helper->validate($request, $rules);
         if (is_null($validate)) {
-            $data = $request->only(['rating', 'comment']);
-            $data['booking_id'] = $booking_id;
+            $data = $request->only(['rating', 'comment', 'booking_id']);
             $data['user_id'] = Auth::user()->user_id;
 
             $response = $this->reviewService->submitReview($data);
@@ -49,7 +49,7 @@ class ReviewController extends Controller
             'search_by'  => 'nullable|string|max:255',
             'first'      => 'required|integer|min:1',
             'max'        => 'required|integer|min:1',
-            'filter_by'  => 'nullable|string|in:1,2,3,4,5', // rating
+            'filter_by'  => 'nullable|string|in:1,2,3,4,5', 
             'sort_by'    => 'nullable|string|in:created_at,rating,reviewer_name',
             'sort'       => 'nullable|string|in:asc,desc'
         ];

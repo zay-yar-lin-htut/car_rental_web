@@ -128,12 +128,22 @@ class BookingController extends Controller
             return $this->helper->PostMan(null, 422, $validate);
         }
 
-        $user = Auth::user();
-        if ($user->user_type_id != 2) {
-            return $this->helper->PostMan(null, 403, "Staff only");
-        }
-
         $deliveries = $this->bookingService->getCustomerPickupBookings($request->office_id);
         return $this->helper->PostMan($deliveries, 200, "Today's deliveries retrieved");
+    }
+
+    public function getTodayTakeBack(Request $request)
+    {
+        $rules = [
+            'office_id' => 'required|integer|exists:office_locations,office_location_id'
+        ];
+        $validate = $this->helper->validate($request, $rules);
+
+        if (!is_null($validate)) {
+            return $this->helper->PostMan(null, 422, $validate);
+        }
+
+        $takebacks = $this->bookingService->getCustomerTakebackBookings($request->office_id);
+        return $this->helper->PostMan($takebacks, 200, "Today's take-backs retrieved");
     }
 }

@@ -4,6 +4,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\CheckUserType;
+use App\Http\Middleware\WildcardCors;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         //     ->for('api');
         $middleware->alias([
             'user_type' => CheckUserType::class,
+            'cors' => WildcardCors::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

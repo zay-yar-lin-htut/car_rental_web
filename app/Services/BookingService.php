@@ -302,7 +302,7 @@ class BookingService
         return null;
     }
 
-    public function getCustomerPickupBookings($office_id)
+    public function getCustomerPickupBookings($office_id, $pickup=true)
     {
 
         // 1. Get office timezone
@@ -330,7 +330,7 @@ class BookingService
         $bookings = DB::table('bookings as b')
             ->join('cars as c', 'b.car_id', '=', 'c.car_id')
             ->where('b.deliver_need', 1)
-            ->where('b.booking_status', 'pending')
+            ->where('b.booking_status', 'confirmed')
             ->whereDate('b.pickup_datetime', $today)
             ->where('b.delivery_office_id', $office_id)
             ->select(
@@ -383,6 +383,95 @@ class BookingService
 
         return $result
             ->sortBy(function ($item) use ($distance, $minutesUntil) {
+                $isOverdue = $item['minutes_until'] < 0;
+                return $isOverdue
+                    ? -1000 + abs($item['minutes_until'])
+                    : $item['distance_km'] + max(0, $item['minutes_until'] / 60);
+            })
+            ->values()
+            ->toArray();
+    }
+
+    public function getCustomerTakebackBookings($officeId)
+    {
+        // 1. Get office timezone (from lat/long)
+        $timezoneResult = $this->commonService->getOfficeTimezone($officeId);
+
+        if (str_starts_with($timezoneResult, 'Error:')) {
+            return ['error' => $timezoneResult];
+        }
+
+        $officeTimezone = $timezoneResult;
+        $now = \Carbon\Carbon::now($officeTimezone);
+        $today = $now->format('Y-m-d');
+
+        // 2. Get office lat/lng
+        $office = DB::table('office_locations')
+            ->where('office_location_id', $officeId)
+            ->select('latitude', 'longitude')
+            ->first();
+
+        if (!$office) {
+            return ['error' => "Error: Office not found (ID: {$officeId})"];
+        }
+
+        // 3. Query: today + pending + take_back_need = 1 + correct office
+        $bookings = DB::table('bookings as b')
+            ->join('cars as c', 'b.car_id', '=', 'c.car_id')
+            ->where('b.take_back_need', 1)
+            ->where('b.booking_status', 'confirmed')
+            ->whereDate('b.dropoff_datetime', $today) // ← Use dropoff_datetime
+            ->where('b.takeback_office_id', $officeId)
+            ->select(
+                'b.booking_id',
+                'b.ticket_number',
+                'b.dropoff_datetime as pickup_datetime', // reuse field name for frontend
+                'b.dropoff_latitude as pickup_latitude',
+                'b.dropoff_longitude as pickup_longitude',
+                'c.model',
+                'c.license_plate'
+            )
+            ->get();
+
+        if ($bookings->isEmpty()) {
+            return [];
+        }
+
+        $result = collect();
+
+        foreach ($bookings as $b) {
+            $pickupLocal = \Carbon\Carbon::parse($b->pickup_datetime, 'UTC')->setTimezone($officeTimezone);
+
+            $distance = $this->commonService->haversine(
+                $office->latitude,
+                $office->longitude,
+                (float)$b->pickup_latitude,
+                (float)$b->pickup_longitude
+            );
+
+            $minutesUntil = $now->diffInMinutes($pickupLocal, false);
+            $isOverdue = $minutesUntil < 0;
+
+            $priority = $isOverdue
+                ? -1000 + abs($minutesUntil)
+                : $distance + max(0, $minutesUntil / 60);
+
+            $result->push([
+                'booking_id'       => $b->booking_id,
+                'ticket_number'    => $b->ticket_number,
+                'pickup_datetime'  => $pickupLocal->format('Y-m-d H:i:s'), // local time
+                'pickup_latitude'  => (float)$b->pickup_latitude,
+                'pickup_longitude' => (float)$b->pickup_longitude,
+                'model'            => $b->model,
+                'license_plate'    => $b->license_plate,
+                'distance_km'      => round($distance, 2),
+                'minutes_until'    => (int)$minutesUntil,
+                'is_overdue'       => $isOverdue
+            ]);
+        }
+
+        return $result
+            ->sortBy(function ($item) {
                 $isOverdue = $item['minutes_until'] < 0;
                 return $isOverdue
                     ? -1000 + abs($item['minutes_until'])
