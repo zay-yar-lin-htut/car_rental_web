@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Services;
 
 use App\Services\FileService;
@@ -9,25 +10,26 @@ class CarService
 {
     protected $fileService;
     protected $commonService;
+
     public function __construct(FileService $fileService, CommonService $commonService)
     {
         $this->fileService = $fileService;
         $this->commonService = $commonService;
     }
 
-    ///Car Type
+    // ==================== CAR TYPE ====================
+
     public function carTypes()
     {
-        $carTypes = DB::table('car_type as ct')
+        return DB::table('car_type as ct')
             ->leftJoin('photo_paths as pp', 'ct.photo_path_id', '=', 'pp.photo_path_id')
             ->select(
-                'ct.car_type_id', 
+                'ct.car_type_id',
                 'ct.type_name',
                 'ct.description',
                 DB::raw("CONCAT('" . env('R2_URL') . "/', pp.photo_path) as car_type_image_url")
             )
             ->get();
-        return $carTypes;
     }
 
     public function createCarType(array $data)
@@ -37,10 +39,14 @@ class CarService
             return "Failed to upload car type image.";
         }
 
+        $photoPathId = DB::table('photo_paths')->insertGetId(['photo_path' => $photoPath]);
+
         $carTypeId = DB::table('car_type')->insertGetId([
             'type_name' => $data['type_name'],
             'description' => $data['description'],
-            'photo_path_id' => DB::table('photo_paths')->insertGetId(['photo_path' => $photoPath]),
+            'photo_path_id' => $photoPathId,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         return $carTypeId ? null : "Failed to create car type.";
@@ -48,62 +54,57 @@ class CarService
 
     public function getCarTypeById($id)
     {
-        $carType = DB::table('car_type as ct')
+        return DB::table('car_type as ct')
             ->leftJoin('photo_paths as pp', 'ct.photo_path_id', '=', 'pp.photo_path_id')
             ->select(
-                'ct.car_type_id', 
+                'ct.car_type_id',
                 'ct.type_name',
                 'ct.description',
                 DB::raw("CONCAT('" . env('R2_URL') . "/', pp.photo_path) as car_type_image_url")
             )
             ->where('ct.car_type_id', $id)
             ->first();
-
-        return $carType;
     }
 
     public function alreadyExistsImagePath($id)
     {
-        $photoPath = DB::table('photo_paths')
-        ->where('photo_path_id', $id)
-        ->value('photo_path');
-        return $photoPath;
+        return DB::table('photo_paths')
+            ->where('photo_path_id', $id)
+            ->value('photo_path');
     }
 
     public function updateCarType($data)
     {
-        $carType = DB::table('car_type')
-            ->where('car_type_id', $data['id'])
-            ->first();
+        $carType = DB::table('car_type')->where('car_type_id', $data['id'])->first();
         if (!$carType) {
             return "Car type not found.";
         }
 
         if (isset($data['car_type_image'])) {
-            $existsPhotoPath=$this->alreadyExistsImagePath($carType->photo_path_id);
-            $photoDelete = $this->fileService->deleteFile($existsPhotoPath);
-            if (!$photoDelete) {
-                return "Failed to delete old car type image.";
+            $oldPath = $this->alreadyExistsImagePath($carType->photo_path_id);
+            if ($oldPath) {
+                $this->fileService->deleteFile($oldPath);
             }
-            $photoPath = $this->fileService->uploadFile($data['car_type_image'], 'Car_Types/');
-            if (!$photoPath) {
-                return "Failed to upload car type image.";
+
+            $newPath = $this->fileService->uploadFile($data['car_type_image'], 'Car_Types/');
+            if (!$newPath) {
+                return "Failed to upload new image.";
             }
+
             DB::table('photo_paths')
-            ->where('photo_path_id', $carType->photo_path_id)
-            ->update(
-                ['photo_path' => $photoPath],
-                ['updated_at' => now()]
-            );
+                ->where('photo_path_id', $carType->photo_path_id)
+                ->update(['photo_path' => $newPath, 'updated_at' => now()]);
         }
 
-        DB::table('car_type')->where('car_type_id', $data['id'])->update([
-            'type_name' => $data['type_name'] ?? $carType->type_name,
-            'description' => $data['description'] ?? $carType->description,
-            'updated_at' => now(),
-        ]);
+        DB::table('car_type')
+            ->where('car_type_id', $data['id'])
+            ->update([
+                'type_name' => $data['type_name'] ?? $carType->type_name,
+                'description' => $data['description'] ?? $carType->description,
+                'updated_at' => now(),
+            ]);
 
-        return null; 
+        return null;
     }
 
     public function deleteCarType($id)
@@ -113,27 +114,26 @@ class CarService
             return "Car type not found.";
         }
 
-        $existsPhotoPath = $this->alreadyExistsImagePath($carType->photo_path_id);
-        if ($existsPhotoPath) {
-            $deletePhoto = $this->fileService->deleteFile($existsPhotoPath);
-            if (!$deletePhoto) {
-                return "Failed to delete car type image.";
+        if ($carType->photo_path_id) {
+            $photoPath = $this->alreadyExistsImagePath($carType->photo_path_id);
+            if ($photoPath) {
+                $this->fileService->deleteFile($photoPath);
             }
+            DB::table('photo_paths')->where('photo_path_id', $carType->photo_path_id)->delete();
         }
-        // Delete the photo path record
-        DB::table('car_type')->where('car_type_id', $id)->delete();
-        DB::table('photo_paths')->where('photo_path_id', $carType->photo_path_id)->delete();
 
-        return null; 
+        DB::table('car_type')->where('car_type_id', $id)->delete();
+
+        return null;
     }
-    
-    ///Car
+
+    // ==================== CARS ====================
+
     public function getCars($data)
     {
         $query = DB::table('cars as c')
             ->leftJoin('car_type as ct', 'c.car_type_id', '=', 'ct.car_type_id')
             ->leftJoin('photo_paths as pp', 'c.photo_path_id', '=', 'pp.photo_path_id')
-            ->leftJoin('owners as o', 'c.owner_id', '=', 'o.owner_id')
             ->select(
                 'c.car_id',
                 'ct.type_name as car_type',
@@ -148,15 +148,12 @@ class CarService
                 'c.color',
                 'c.transmission',
                 'c.fuel_type',
-                'c.ownership_condition',
-                'o.name as owner_name',
                 'c.created_at',
                 'c.updated_at',
                 DB::raw("CONCAT('" . env('R2_URL') . "/', pp.photo_path) as car_image_url")
             )
             ->where('c.availability', true);
 
-        // Filtering
         if (!empty($data['car_type_id'])) {
             $query->where('c.car_type_id', $data['car_type_id']);
         }
@@ -166,42 +163,36 @@ class CarService
 
         $totalCars = DB::table('cars')->where('availability', true)->count();
 
-        // Pagination
-        $page = max(1, (int)$data['first']);
-        $max = max(1, (int)$data['max']);
+        $page = max(1, (int)($data['first'] ?? 1));
+        $max = max(1, (int)($data['max'] ?? 10));
         $offset = ($page - 1) * $max;
 
         $cars = $query->offset($offset)->limit($max)->get();
 
-        // Add total_price if total_hours exists
         if (!empty($data['total_hours'])) {
-            $cars->transform(function ($car) use ($data) {
-                $hours = (float) $data['total_hours'];
-
+            $hours = (float)$data['total_hours'];
+            $cars = $cars->map(function ($car) use ($hours) {
                 if ($hours < 24) {
                     $car->total_price = round($hours * $car->price_per_hour, 2);
                 } else {
                     $days = floor($hours / 24);
-                    $remainingHours = round($hours - ($days * 24), 2);
+                    $remainingHours = $hours - ($days * 24);
                     $car->total_price = round(($days * $car->price_per_day) + ($remainingHours * $car->price_per_hour), 2);
                 }
-
                 return $car;
             });
         }
 
-        // Dynamic sorting
         if (!empty($data['asc_total'])) {
-            $asc = $data['asc_total'] === "true";
+            $asc = $data['asc_total'] === 'true';
             $cars = $cars->sortBy('total_price', SORT_REGULAR, !$asc)->values();
         } elseif (!empty($data['asc_hour'])) {
-            $asc = $data['asc_hour'] === "true";
+            $asc = $data['asc_hour'] === 'true';
             $cars = $cars->sortBy('price_per_hour', SORT_REGULAR, !$asc)->values();
         } elseif (!empty($data['asc_day'])) {
-            $asc = $data['asc_day'] === "true";
+            $asc = $data['asc_day'] === 'true';
             $cars = $cars->sortBy('price_per_day', SORT_REGULAR, !$asc)->values();
         }
-        // Else: no sorting, keep original DB order
 
         return [
             'cars' => $cars,
@@ -216,6 +207,12 @@ class CarService
             return "Failed to upload car image.";
         }
 
+        $photoPathId = DB::table('photo_paths')->insertGetId([
+            'photo_path' => $photoPath,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         $carId = DB::table('cars')->insertGetId([
             'car_type_id' => $data['car_type_id'],
             'model' => $data['model'],
@@ -228,9 +225,8 @@ class CarService
             'color' => $data['color'],
             'transmission' => $data['transmission'],
             'fuel_type' => $data['fuel_type'],
-            'photo_path_id' => DB::table('photo_paths')->insertGetId(['photo_path' => $photoPath]),
-            'owner_id' => $data['owner_id'],
-            'ownership_condition' => $data['ownership_condition'],
+            'office_location_id' => $data['office_location_id'],
+            'photo_path_id' => $photoPathId,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -240,26 +236,25 @@ class CarService
 
     public function updateCar($data)
     {
-        $car = DB::table('cars')->where('car_id', (int)$data['id'])->first();
+        $car = DB::table('cars')->where('car_id', $data['id'])->first();
         if (!$car) {
-            dd($car, $data['id']);
             return "Car not found.";
         }
 
-
         if (isset($data['car_image'])) {
-            $existsPhotoPath = $this->alreadyExistsImagePath($car->photo_path_id);
-            $photoDelete = $this->fileService->deleteFile($existsPhotoPath);
-            if (!$photoDelete) {
-                return "Failed to delete old car image.";
+            $oldPath = $this->alreadyExistsImagePath($car->photo_path_id);
+            if ($oldPath) {
+                $this->fileService->deleteFile($oldPath);
             }
-            $photoPath = $this->fileService->uploadFile($data['car_image'], 'Cars/');
-            if (!$photoPath) {
-                return "Failed to upload car image.";
+
+            $newPath = $this->fileService->uploadFile($data['car_image'], 'Cars/');
+            if (!$newPath) {
+                return "Failed to upload new image.";
             }
+
             DB::table('photo_paths')
                 ->where('photo_path_id', $car->photo_path_id)
-                ->update(['photo_path' => $photoPath, 'updated_at' => now()]);
+                ->update(['photo_path' => $newPath, 'updated_at' => now()]);
         }
 
         DB::table('cars')->where('car_id', $data['id'])->update([
@@ -274,9 +269,11 @@ class CarService
             'color' => $data['color'] ?? $car->color,
             'transmission' => $data['transmission'] ?? $car->transmission,
             'fuel_type' => $data['fuel_type'] ?? $car->fuel_type,
+            'office_location_id' => $data['office_location_id'] ?? $car->office_location_id,
+            'updated_at' => now(),
         ]);
 
-        return null; 
+        return null;
     }
 
     public function deleteCar($id)
@@ -285,13 +282,17 @@ class CarService
         if (!$car) {
             return "Car not found.";
         }
-        $existsPhotoPath = $this->alreadyExistsImagePath($car->photo_path_id);
-        $photoDelete = $this->fileService->deleteFile($existsPhotoPath);
-        if (!$photoDelete) {
-            return "Failed to delete old car image.";
+
+        if ($car->photo_path_id) {
+            $photoPath = $this->alreadyExistsImagePath($car->photo_path_id);
+            if ($photoPath) {
+                $this->fileService->deleteFile($photoPath);
+            }
+            DB::table('photo_paths')->where('photo_path_id', $car->photo_path_id)->delete();
         }
-        DB::table('cars')->where('car_id', $car->car_id)->delete();
-        DB::table('photo_paths')->where('photo_path_id', $car->photo_path_id)->delete();
+
+        DB::table('cars')->where('car_id', $id)->delete();
+
         return null;
     }
 
@@ -301,10 +302,6 @@ class CarService
         if (!$car) {
             return "Car not found.";
         }
-        $isCarAvailable = $car->availability;
-        if ($isCarAvailable == false) {
-            return "Selected car is not available. Please select another car.";
-        }
-        return null;
+        return $car->availability ? null : "Selected car is not available. Please select another car.";
     }
 }

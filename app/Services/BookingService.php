@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Services\CommonService;
+use Carbon\Carbon;
 
 class BookingService
 {
@@ -302,41 +303,42 @@ class BookingService
         return null;
     }
 
-    public function getCustomerPickupBookings($office_id, $pickup=true)
+// ===================================================================
+    // 1. TODAY'S DELIVERIES (PICKUP) — UTC in DB → Local Display
+    // ===================================================================
+    public function getCustomerPickupBookings($officeId)
     {
-
         // 1. Get office timezone
-        $timezoneResult = $this->commonService->getOfficeTimezone($office_id);
-
-        if (str_starts_with($timezoneResult, 'Error:')) {
-            return ['error' => $timezoneResult];
+        $officeTimezone = $this->commonService->getOfficeTimezone($officeId);
+        if (str_starts_with($officeTimezone, 'Error:')) {
+            return ['error' => $officeTimezone];
         }
 
-        $officeTimezone = $timezoneResult;
-        $now = \Carbon\Carbon::now($officeTimezone);
-        $today = $now->format('Y-m-d');
+        // 2. Use UTC for DB query
+        $nowUtc = Carbon::now('UTC');
+        $todayUtc = $nowUtc->format('Y-m-d');
 
-        // 2. Get office lat/lng
+        // 3. Get office lat/lng
         $office = DB::table('office_locations')
-            ->where('office_location_id', $office_id)
+            ->where('office_location_id', $officeId)
             ->select('latitude', 'longitude')
             ->first();
 
         if (!$office) {
-            return ['error' => "Error: Office not found (ID: {$office_id})"];
+            return ['error' => "Office not found (ID: {$officeId})"];
         }
 
-        // 3. Query: today + pending + delivery
+        // 4. Query: today + pending + delivery
         $bookings = DB::table('bookings as b')
             ->join('cars as c', 'b.car_id', '=', 'c.car_id')
             ->where('b.deliver_need', 1)
-            ->where('b.booking_status', 'confirmed')
-            ->whereDate('b.pickup_datetime', $today)
-            ->where('b.delivery_office_id', $office_id)
+            ->where('b.booking_status', 'pending')
+            ->whereDate('b.pickup_datetime', $todayUtc) // UTC
+            ->where('b.delivery_office_id', $officeId)
             ->select(
                 'b.booking_id',
                 'b.ticket_number',
-                'b.pickup_datetime',
+                'b.pickup_datetime',      // UTC
                 'b.pickup_latitude',
                 'b.pickup_longitude',
                 'c.model',
@@ -349,9 +351,12 @@ class BookingService
         }
 
         $result = collect();
+        $nowLocal = $nowUtc->copy()->setTimezone($officeTimezone);
 
         foreach ($bookings as $b) {
-            $pickupLocal = \Carbon\Carbon::parse($b->pickup_datetime, 'UTC')->setTimezone($officeTimezone);
+            // UTC → LOCAL
+            $pickupLocal = Carbon::parse($b->pickup_datetime, 'UTC')
+                                 ->setTimezone($officeTimezone);
 
             $distance = $this->commonService->haversine(
                 $office->latitude,
@@ -360,17 +365,13 @@ class BookingService
                 (float)$b->pickup_longitude
             );
 
-            $minutesUntil = $now->diffInMinutes($pickupLocal, false);
+            $minutesUntil = $nowLocal->diffInMinutes($pickupLocal, false);
             $isOverdue = $minutesUntil < 0;
-
-            $priority = $isOverdue
-                ? -1000 + abs($minutesUntil)
-                : $distance + max(0, $minutesUntil / 60);
 
             $result->push([
                 'booking_id'       => $b->booking_id,
                 'ticket_number'    => $b->ticket_number,
-                'pickup_datetime'  => $pickupLocal->format('Y-m-d H:i:s'),
+                'pickup_datetime'  => $pickupLocal->format('Y-m-d H:i:s'), // LOCAL
                 'pickup_latitude'  => (float)$b->pickup_latitude,
                 'pickup_longitude' => (float)$b->pickup_longitude,
                 'model'            => $b->model,
@@ -381,10 +382,10 @@ class BookingService
             ]);
         }
 
+        // Sort: overdue first → then closest + soonest
         return $result
-            ->sortBy(function ($item) use ($distance, $minutesUntil) {
-                $isOverdue = $item['minutes_until'] < 0;
-                return $isOverdue
+            ->sortBy(function ($item) {
+                return $item['is_overdue']
                     ? -1000 + abs($item['minutes_until'])
                     : $item['distance_km'] + max(0, $item['minutes_until'] / 60);
             })
@@ -392,42 +393,40 @@ class BookingService
             ->toArray();
     }
 
+    // ===================================================================
+    // 2. TODAY'S TAKE-BACKS (RETURN) — UTC in DB → Local Display
+    // ===================================================================
     public function getCustomerTakebackBookings($officeId)
     {
-        // 1. Get office timezone (from lat/long)
-        $timezoneResult = $this->commonService->getOfficeTimezone($officeId);
-
-        if (str_starts_with($timezoneResult, 'Error:')) {
-            return ['error' => $timezoneResult];
+        $officeTimezone = $this->commonService->getOfficeTimezone($officeId);
+        if (str_starts_with($officeTimezone, 'Error:')) {
+            return ['error' => $officeTimezone];
         }
 
-        $officeTimezone = $timezoneResult;
-        $now = \Carbon\Carbon::now($officeTimezone);
-        $today = $now->format('Y-m-d');
+        $nowUtc = Carbon::now('UTC');
+        $todayUtc = $nowUtc->format('Y-m-d');
 
-        // 2. Get office lat/lng
         $office = DB::table('office_locations')
             ->where('office_location_id', $officeId)
             ->select('latitude', 'longitude')
             ->first();
 
         if (!$office) {
-            return ['error' => "Error: Office not found (ID: {$officeId})"];
+            return ['error' => "Office not found (ID: {$officeId})"];
         }
 
-        // 3. Query: today + pending + take_back_need = 1 + correct office
         $bookings = DB::table('bookings as b')
             ->join('cars as c', 'b.car_id', '=', 'c.car_id')
             ->where('b.take_back_need', 1)
-            ->where('b.booking_status', 'confirmed')
-            ->whereDate('b.dropoff_datetime', $today) // ← Use dropoff_datetime
+            ->where('b.booking_status', 'pending')
+            ->whereDate('b.dropoff_datetime', $todayUtc) // UTC
             ->where('b.takeback_office_id', $officeId)
             ->select(
                 'b.booking_id',
                 'b.ticket_number',
-                'b.dropoff_datetime as pickup_datetime', // reuse field name for frontend
-                'b.dropoff_latitude as pickup_latitude',
-                'b.dropoff_longitude as pickup_longitude',
+                'b.dropoff_datetime',     // UTC
+                'b.dropoff_latitude',
+                'b.dropoff_longitude',
                 'c.model',
                 'c.license_plate'
             )
@@ -438,30 +437,28 @@ class BookingService
         }
 
         $result = collect();
+        $nowLocal = $nowUtc->copy()->setTimezone($officeTimezone);
 
         foreach ($bookings as $b) {
-            $pickupLocal = \Carbon\Carbon::parse($b->pickup_datetime, 'UTC')->setTimezone($officeTimezone);
+            $returnLocal = Carbon::parse($b->dropoff_datetime, 'UTC')
+                                 ->setTimezone($officeTimezone);
 
             $distance = $this->commonService->haversine(
                 $office->latitude,
                 $office->longitude,
-                (float)$b->pickup_latitude,
-                (float)$b->pickup_longitude
+                (float)$b->dropoff_latitude,
+                (float)$b->dropoff_longitude
             );
 
-            $minutesUntil = $now->diffInMinutes($pickupLocal, false);
+            $minutesUntil = $nowLocal->diffInMinutes($returnLocal, false);
             $isOverdue = $minutesUntil < 0;
-
-            $priority = $isOverdue
-                ? -1000 + abs($minutesUntil)
-                : $distance + max(0, $minutesUntil / 60);
 
             $result->push([
                 'booking_id'       => $b->booking_id,
                 'ticket_number'    => $b->ticket_number,
-                'pickup_datetime'  => $pickupLocal->format('Y-m-d H:i:s'), // local time
-                'pickup_latitude'  => (float)$b->pickup_latitude,
-                'pickup_longitude' => (float)$b->pickup_longitude,
+                'pickup_datetime'  => $returnLocal->format('Y-m-d H:i:s'), // LOCAL
+                'pickup_latitude'  => (float)$b->dropoff_latitude,
+                'pickup_longitude' => (float)$b->dropoff_longitude,
                 'model'            => $b->model,
                 'license_plate'    => $b->license_plate,
                 'distance_km'      => round($distance, 2),
@@ -472,8 +469,7 @@ class BookingService
 
         return $result
             ->sortBy(function ($item) {
-                $isOverdue = $item['minutes_until'] < 0;
-                return $isOverdue
+                return $item['is_overdue']
                     ? -1000 + abs($item['minutes_until'])
                     : $item['distance_km'] + max(0, $item['minutes_until'] / 60);
             })

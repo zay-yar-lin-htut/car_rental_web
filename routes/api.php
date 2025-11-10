@@ -38,6 +38,7 @@ Route::middleware('auth:sanctum')->group(function ()
     Route::middleware('user_type:2')->prefix('/staff')->group(function (){
         // Booking routes
         Route::get('/today-deliveries', [BookingController::class, 'getTodayDeliveries']);
+        Route::get('/today-takebacks', [BookingController::class, 'getTodayTakeBacks']);
     });
     
     // Admin routes
