@@ -69,7 +69,7 @@ class BookingController extends Controller
 
         $rules = [
             'car_id' => 'required|integer|exists:cars,car_id',
-            'pickup_datetime' => 'required|date|after_or_equal:' . now()->addHours(24)->format('Y-m-d H:i:s'),
+            'pickup_datetime' => 'required|date|after_or_equal:now',
             'dropoff_datetime' => 'required|date|after:pickup_datetime',
             'pickup_latitude' => 'required|numeric',
             'pickup_longitude' => 'required|numeric',

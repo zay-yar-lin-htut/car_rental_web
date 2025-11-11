@@ -8,6 +8,7 @@ use App\Helpers\Helper;
 use App\Services\CommonService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class CarController extends Controller
 {
@@ -80,8 +81,6 @@ class CarController extends Controller
             ? $this->helper->PostMan(null, 200, "Car type deleted successfully")
             : $this->helper->PostMan(null, 404, $response);
     }
-
-    // ==================== CARS ====================
 
     public function getCars(Request $request)
     {
@@ -159,7 +158,13 @@ class CarController extends Controller
         $rules = [
             'model' => 'nullable|string|max:255',
             'car_model' => 'nullable|string|max:255',
-            'license_plate' => "nullable|string|unique:cars,license_plate,{$id},car_id",
+            'license_plate' => [
+                'sometimes',
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('cars', 'license_plate')->ignore($id),
+            ],
             'car_type_id' => 'nullable|integer|exists:car_type,car_type_id',
             'price_per_hour' => 'nullable|numeric|min:0',
             'price_per_day' => 'nullable|numeric|min:0',
