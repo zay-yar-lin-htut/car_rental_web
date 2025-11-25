@@ -184,38 +184,46 @@ class CarService
             });
         }
 
-        // === TOTAL COUNT ===
+        // === TOTAL COUNT (before sorting) ===
         $totalCars = (clone $query)->count();
 
-        // === SORTING IN DATABASE (FAST & CORRECT) ===
+        // === CALCULATE TOTAL PRICE IN SQL (for correct global sorting) ===
+        $hours = !empty($data['total_hours']) ? (float)$data['total_hours'] : null;
+
+        if ($hours !== null) {
+            // This is the MAGIC: calculate total_price in SQL → can sort globally
+            $query->selectRaw(
+                "IF(? < 24,
+                    ROUND(? * c.price_per_hour, 2),
+                    ROUND(
+                        FLOOR(? / 24) * c.price_per_day +
+                        (? - FLOOR(? / 24) * 24) * c.price_per_hour,
+                        2
+                    )
+                ) AS total_price",
+                [$hours, $hours, $hours, $hours, $hours]
+            );
+        }
+
+        // === SORTING (GLOBAL & CORRECT) ===
         if (!empty($data['asc_hour'])) {
             $query->orderBy('c.price_per_hour', $data['asc_hour'] === 'true' ? 'asc' : 'desc');
         } elseif (!empty($data['asc_day'])) {
             $query->orderBy('c.price_per_day', $data['asc_day'] === 'true' ? 'asc' : 'desc');
+        } elseif (!empty($data['asc_total']) && $hours !== null) {
+            $query->orderBy('total_price', $data['asc_total'] === 'true' ? 'asc' : 'desc');
         }
 
-        // === PAGINATION ===
+        // === PAGINATION (AFTER sorting) ===
         $cars = $query->offset($offset)->limit($perPage)->get();
 
-        // === TOTAL PRICE (only for current page) ===
-        if (!empty($data['total_hours'])) {
-            $hours = (float)$data['total_hours'];
+        // === FINAL: Add total_price to object (if not already from SQL) ===
+        if ($hours !== null) {
             $cars = $cars->map(function ($car) use ($hours) {
-                if ($hours < 24) {
-                    $car->total_price = round($hours * $car->price_per_hour, 2);
-                } else {
-                    $days = floor($hours / 24);
-                    $remaining = $hours - ($days * 24);
-                    $car->total_price = round(($days * $car->price_per_day) + ($remaining * $car->price_per_hour), 2);
-                }
+                // total_price already calculated in SQL → just cast
+                $car->total_price = (float)$car->total_price;
                 return $car;
             });
-
-            // === SORT BY TOTAL PRICE (after calculating) ===
-            if (!empty($data['asc_total'])) {
-                $asc = $data['asc_total'] === 'true';
-                $cars = $cars->sortBy('total_price', SORT_REGULAR, !$asc)->values();
-            }
         }
 
         return [

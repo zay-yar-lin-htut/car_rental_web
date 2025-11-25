@@ -394,7 +394,7 @@ class UserService
             ->first();
 
         $no_show = $data->no_show_count * 10000;
-        $cancellation = $data->cancellation_count * 30000;
+        $cancellation = $data->cancellation_count * 3000;
 
         return $data = [
             'No-show Fine' => $no_show,
