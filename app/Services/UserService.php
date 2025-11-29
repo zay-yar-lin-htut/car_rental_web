@@ -36,7 +36,7 @@ class UserService
         // event(new Registered($user));
         if ($response)
         {
-            Mail::to($data['email'])->send(new Welcome($response));
+            // Mail::to($data['email'])->send(new Welcome($response));
             return null;
         }
         else
