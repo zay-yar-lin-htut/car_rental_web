@@ -724,7 +724,7 @@ class BookingService
             ->where('availability', 1)
             ->count();
         $rentedCars = DB::table('bookings')
-            ->whereIn('booking_status', ['confirmed', 'on_rent'])
+            ->whereIn('booking_status', ['confirmed', 'on_rent','pending'])
             ->distinct()
             ->count('car_id');
 
