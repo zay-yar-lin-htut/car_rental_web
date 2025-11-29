@@ -752,7 +752,7 @@ class BookingService
         // 3. Pending deliveries & takebacks today (kept but optional)
         $pendingDeliveries = DB::table('bookings')
             ->where('deliver_need', 1)
-            ->where('booking_status', 'pending')
+            ->whereIn('booking_status', ['pending', 'confirmed'])
             ->whereDate('pickup_datetime', $today)
             ->count();
 
