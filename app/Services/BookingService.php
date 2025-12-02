@@ -868,8 +868,8 @@ class BookingService
             ->where('b.ticket_number', $ticketNumber)
             // Select the three required calculated components
             ->selectRaw('
-                (u.no_show_count * 3000) AS no_show_fine,
-                (u.cancellation_count * 10000) AS cancellation_fine,
+                (u.no_show_count * 10000) AS no_show_fine,
+                (u.cancellation_count * 3000) AS cancellation_fine,
                 b.total_amount AS booking_cost
             ')
             ->first(); // Get the first matching record
