@@ -8,13 +8,18 @@ use Illuminate\Http\UploadedFile;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Helpers\Helper;
+use Illuminate\Http\Request;
 
 class FileService
 {
     private S3Client $client;
+    protected $helper;
 
-    public function __construct()
+
+    public function __construct(Helper $helper)
     {
+        $this->helper = $helper;
         $key = env('R2_ACCESS_KEY_ID');
         $secret = env('R2_SECRET_ACCESS_KEY');
         
@@ -98,5 +103,32 @@ class FileService
         } catch (\Exception $e) {
             throw new HttpException(500, 'Failed to list files: ' . $e->getMessage());
         }
+    }
+
+
+    public function social_media_file_upload (Request $request)
+    {
+        $rule = [
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:10240',
+        ];
+
+        $validate = $this->helper->Validate($request, $rule);
+        if (is_null($validate)) {
+            $file = $request->file('image');
+        } else {
+            return $this->helper->PostMan(null, 422, $validate);
+        }
+        
+        $filename = $this->uploadFile($file, 'SocialMedia/');
+        if(!$filename){
+            return $this->helper->PostMan(null, 500, "File upload failed");
+        }
+        return $this->helper->PostMan($filename, 200, "File uploaded successfully");
+        // return $filename;
+    }
+
+    public function social_media_file_delete (string $path){
+        $fileUpload = $this->deleteFile($path);
+        return $this->helper->PostMan($fileUpload, 200, "File deleted successfully");
     }
 }
