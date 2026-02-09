@@ -151,5 +151,5 @@ Route::get('/test', [BookingService::class, 'getResponsibleOffice']);
 
 
 Route::post('/social-media-file-upload', [FileService::class, 'social_media_file_upload']);
-Route::post('/profile-image-upload', [FileService::class, 'profile_image_upload']);
+Route::post('/social-media-file-delete', [FileService::class, 'social_media_file_delete']);
 //// testing route

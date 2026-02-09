@@ -64,7 +64,7 @@ class FileService
             return $key;
         } catch (AwsException $e) {
             fclose($stream);  // Close on error
-            return response()->json(['error' => $e->getMessage()], 500);
+            return $this->helper->PostMan(null, 500, $e->getMessage());
         }
     }
 
@@ -78,7 +78,7 @@ class FileService
 
             return true;
         } catch (\Exception $e) {
-            throw new HttpException(500, 'Failed to delete file: ' . $e->getMessage());
+            return $this->helper->PostMan(null, 500, $e->getMessage());
         }
     }
 
@@ -120,15 +120,29 @@ class FileService
         }
         
         $filename = $this->uploadFile($file, 'SocialMedia/');
+        $baseUrl = rtrim(env('R2_URL', ''), '/');
+        $fileUrl = $baseUrl . '/' . $filename;
+
         if(!$filename){
             return $this->helper->PostMan(null, 500, "File upload failed");
         }
-        return $this->helper->PostMan($filename, 200, "File uploaded successfully");
-        // return $filename;
+        return $this->helper->PostMan($fileUrl, 200, "File uploaded successfully");
     }
 
-    public function social_media_file_delete (string $path){
-        $fileUpload = $this->deleteFile($path);
-        return $this->helper->PostMan($fileUpload, 200, "File deleted successfully");
+    public function social_media_file_delete(Request $request){
+        $rule = [
+            'image' => 'required|string',
+        ];
+        $validate = $this->helper->Validate($request, $rule);
+        if (is_null($validate)) {
+            $path = $request->input('image');
+        } else {
+            return $this->helper->PostMan(null, 422, $validate);
+        }
+
+        $isDelete = $this->deleteFile($path);
+        if ($isDelete) {
+            return $this->helper->PostMan(null, 200, "File deleted successfully");
+        }
     }
 }
