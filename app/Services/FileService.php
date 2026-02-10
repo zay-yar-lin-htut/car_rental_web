@@ -64,7 +64,7 @@ class FileService
             return $key;
         } catch (AwsException $e) {
             fclose($stream);  // Close on error
-            return $this->helper->PostMan(null, 500, $e->getMessage());
+            return null;
         }
     }
 
@@ -78,7 +78,7 @@ class FileService
 
             return true;
         } catch (\Exception $e) {
-            return $this->helper->PostMan(null, 500, $e->getMessage());
+            return null;
         }
     }
 
@@ -102,47 +102,6 @@ class FileService
             return $files;
         } catch (\Exception $e) {
             throw new HttpException(500, 'Failed to list files: ' . $e->getMessage());
-        }
-    }
-
-
-    public function social_media_file_upload (Request $request)
-    {
-        $rule = [
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:10240',
-        ];
-
-        $validate = $this->helper->Validate($request, $rule);
-        if (is_null($validate)) {
-            $file = $request->file('image');
-        } else {
-            return $this->helper->PostMan(null, 422, $validate);
-        }
-        
-        $filename = $this->uploadFile($file, 'SocialMedia/');
-        $baseUrl = rtrim(env('R2_URL', ''), '/');
-        $fileUrl = $baseUrl . '/' . $filename;
-
-        if(!$filename){
-            return $this->helper->PostMan(null, 500, "File upload failed");
-        }
-        return $this->helper->PostMan($fileUrl, 200, "File uploaded successfully");
-    }
-
-    public function social_media_file_delete(Request $request){
-        $rule = [
-            'image' => 'required|string',
-        ];
-        $validate = $this->helper->Validate($request, $rule);
-        if (is_null($validate)) {
-            $path = $request->input('image');
-        } else {
-            return $this->helper->PostMan(null, 422, $validate);
-        }
-
-        $isDelete = $this->deleteFile($path);
-        if ($isDelete) {
-            return $this->helper->PostMan(null, 200, "File deleted successfully");
         }
     }
 }

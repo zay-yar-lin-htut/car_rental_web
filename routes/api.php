@@ -12,7 +12,7 @@ use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\TestingController;
 use App\Services\BookingService;
 use App\Http\Controllers\UserPreferenceLocationController;
-use App\Services\FileService;
+use App\Http\Controllers\SocialMediaMicroServiceController;
 
 Route::get('/proxy-image', [ImageController::class, 'proxyImage']);
 Route::post('/register', [UserController::class, 'register']);
@@ -150,6 +150,6 @@ Route::get('/mail', [TestingController::class, 'mail']);
 Route::get('/test', [BookingService::class, 'getResponsibleOffice']);
 
 
-Route::post('/social-media-file-upload', [FileService::class, 'social_media_file_upload']);
-Route::post('/social-media-file-delete', [FileService::class, 'social_media_file_delete']);
+Route::post('/social-media-file-upload', [SocialMediaMicroServiceController::class, 'social_media_file_upload']);
+Route::post('/social-media-file-delete', [SocialMediaMicroServiceController::class, 'social_media_file_delete']);
 //// testing route

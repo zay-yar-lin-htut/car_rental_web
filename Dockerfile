@@ -16,10 +16,10 @@ WORKDIR /var/www/html
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY . .
 
-# RUN composer install --no-dev --optimize-autoloader
+RUN composer install --no-dev --optimize-autoloader
 
 # Run the Laravel API scaffolding setup (the php artisan install:api command)
-# RUN php artisan install:api
+RUN php artisan install:api
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
